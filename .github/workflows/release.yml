@@ -105,21 +105,32 @@ jobs:
         env:
           PRODUCTION: "true"
 
-      - name: Remove quarantine attribute
-        run: |
-          APP_PATH="bin/Ybub.app"
-          # 移除隔离属性
-          sudo xattr -rd com.apple.quarantine "$APP_PATH"
+      - name: List bin directory
+        run: ls -R bin
 
-      - name: Create ZIP instead of DMG
+      - name: Find the built .app
+        id: find_app
         run: |
-          APP_PATH="bin/Ybub.app"
-          ZIP_PATH="bin/Ybub-${{ matrix.arch }}.zip"
+          APP_PATH=$(find bin -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: .app file not found in bin/"
+            exit 1
+          fi
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          echo "Found App: $APP_PATH"
+
+      - name: Remove quarantine attribute
+        run: sudo xattr -rd com.apple.quarantine "$APP_PATH"
+
+      - name: Create ZIP of the app
+        run: |
+          APP_NAME=$(basename "$APP_PATH")
+          ZIP_NAME="bin/${APP_NAME%.app}-${{ matrix.arch }}.zip"
           cd bin
-          zip -r "$ZIP_PATH" "Ybub.app"
+          zip -r "$ZIP_NAME" "$APP_NAME"
           cd ..
-          # 移除 ZIP 文件隔离属性
-          sudo xattr -rd com.apple.quarantine "$ZIP_PATH"
+          sudo xattr -rd com.apple.quarantine "$ZIP_NAME"
+          echo "Created zip: $ZIP_NAME"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
