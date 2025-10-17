@@ -125,12 +125,10 @@ jobs:
       - name: Create ZIP of the app
         run: |
           APP_NAME=$(basename "$APP_PATH")
-          ZIP_NAME="bin/${APP_NAME%.app}-${{ matrix.arch }}.zip"
-          cd bin
-          zip -r "$ZIP_NAME" "$APP_NAME"
-          cd ..
-          sudo xattr -rd com.apple.quarantine "$ZIP_NAME"
-          echo "Created zip: $ZIP_NAME"
+          ZIP_PATH="bin/${APP_NAME%.app}-${{ matrix.arch }}.zip"
+          zip -r "$ZIP_PATH" "$APP_PATH"
+          sudo xattr -rd com.apple.quarantine "$ZIP_PATH"
+          echo "Created zip: $ZIP_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
