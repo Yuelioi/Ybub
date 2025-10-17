@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}-installer
-          path: build/windows/nsis/Ybub-amd64-Installer.exe
+          path: build/windows/nsis/*Installer*.exe
           retention-days: 5
 
   build-macos:
@@ -140,6 +140,9 @@ jobs:
           # 安装 create-dmg
           brew install create-dmg
 
+          # 移除隔离属性（重要！）
+          xattr -cr "bin/Ybub.app"
+
           # 创建 DMG
           create-dmg \
             --volname "Ybub" \
@@ -150,9 +153,8 @@ jobs:
             "bin/Ybub-${{ matrix.arch }}.dmg" \
             "bin/Ybub.app" || true
 
-      - name: Ad-hoc sign DMG (for testing)
-        run: |
-          codesign --force --deep --sign - "bin/Ybub-${{ matrix.arch }}.dmg"
+          # 移除 DMG 的隔离属性
+          xattr -cr "bin/Ybub-${{ matrix.arch }}.dmg"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
