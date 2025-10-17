@@ -42,53 +42,37 @@ jobs:
       - name: Install Task
         run: choco install go-task -y
 
-      - name: Install Wails CLI (for generate commands)
+      - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Install NSIS
-        run: |
-          choco install nsis -y
+        run: choco install nsis -y
 
-      - name: Add NSIS to PATH and verify
-        run: |
-          $env:PATH += ";C:\Program Files (x86)\NSIS"
-          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
+      - name: Add NSIS to PATH
+        run: echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build Windows installer
         run: |
-          # 先构建二进制文件
+          # 构建二进制
           task windows:build PRODUCTION=true
 
-          # 验证文件存在
-          if (Test-Path "bin\Ybub.exe") {
-            Write-Host "✓ Ybub.exe built successfully"
-            Get-Item "bin\Ybub.exe"
-          } else {
-            Write-Host "✗ Ybub.exe not found!"
-            exit 1
-          }
+          $binPath = (Resolve-Path "bin\Ybub.exe").Path
+          if (-Not (Test-Path $binPath)) { Write-Error "Ybub.exe not found"; exit 1 }
 
-          # 设置纯 Windows 路径
-          $rootDir = (Get-Location).Path
-          $binPath = "$rootDir\bin\Ybub.exe"
-
-          # 生成 WebView2 bootstrapper
+          # 生成 WebView2 bootstrapper & icons
           task windows:common:generate:icons
           Push-Location build\windows\nsis
           wails3 generate webview2bootstrapper -dir .
 
-          # 使用正确的路径调用 makensis
+          # 使用 makensis 打包
           makensis "-DARG_WAILS_AMD64_BINARY=$binPath" project.nsi
           Pop-Location
-        env:
-          ARCH: ${{ matrix.arch }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}-installer
-          path: build/windows/nsis/*Installer*.exe
+          path: build/windows/nsis/*.exe
           retention-days: 5
 
   build-macos:
@@ -125,7 +109,7 @@ jobs:
       - name: Install Task
         run: brew install go-task
 
-      - name: Install Wails CLI (for generate commands)
+      - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Build macOS app
@@ -135,11 +119,13 @@ jobs:
 
       - name: Create DMG
         run: |
-          # 安装 create-dmg
           brew install create-dmg
 
-          # 移除隔离属性（重要！）
-          xattr -cr "bin/Ybub.app"
+          APP_PATH="bin/Ybub.app"
+          DMG_PATH="bin/Ybub-${{ matrix.arch }}.dmg"
+
+          # 移除隔离属性，防止 Gatekeeper 提示
+          xattr -cr "$APP_PATH"
 
           # 创建 DMG
           create-dmg \
@@ -148,11 +134,11 @@ jobs:
             --window-size 600 400 \
             --icon-size 100 \
             --app-drop-link 450 185 \
-            "bin/Ybub-${{ matrix.arch }}.dmg" \
-            "bin/Ybub.app" || true
+            "$DMG_PATH" \
+            "$APP_PATH"
 
-          # 移除 DMG 的隔离属性
-          xattr -cr "bin/Ybub-${{ matrix.arch }}.dmg"
+          # 再次移除 DMG 隔离属性
+          xattr -cr "$DMG_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
