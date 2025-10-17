@@ -32,15 +32,10 @@ tasks:
 
   package:
     summary: Packages a production build of the application
-    cmds:
-      - |-
-        if [ "{{.FORMAT | default "nsis"}}" = "msix" ]; then
-          task: create:msix:package
-        else
-          task: create:nsis:installer
-        fi
     vars:
       FORMAT: '{{.FORMAT | default "nsis"}}'
+    cmds:
+      - task: '{{if eq .FORMAT "msix"}}create:msix:package{{else}}create:nsis:installer{{end}}'
 
   generate:syso:
     summary: Generates Windows `.syso` file
@@ -60,7 +55,9 @@ tasks:
     cmds:
       # Create the Microsoft WebView2 bootstrapper if it doesn't exist
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
-      - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe" project.nsi
+      - cmd: >
+          powershell -NoProfile -Command "& makensis ('-DARG_WAILS_{{.ARG_FLAG}}_BINARY=' + (\"{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe\" -replace '/', '\\')) 'project.nsi'"
+        platforms: [windows]
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'

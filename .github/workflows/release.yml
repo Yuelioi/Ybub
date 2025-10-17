@@ -52,27 +52,15 @@ jobs:
         run: echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build Windows installer
-        run: |
-          # 构建二进制
-          task windows:build PRODUCTION=true
-
-          $binPath = (Resolve-Path "bin\Ybub.exe").Path
-          if (-Not (Test-Path $binPath)) { Write-Error "Ybub.exe not found"; exit 1 }
-
-          # 生成 WebView2 bootstrapper & icons
-          task windows:common:generate:icons
-          Push-Location build\windows\nsis
-          wails3 generate webview2bootstrapper -dir .
-
-          # 使用 makensis 打包
-          makensis "-DARG_WAILS_AMD64_BINARY=$binPath" project.nsi
-          Pop-Location
+        run: task package
+        env:
+          PRODUCTION: "true"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}-installer
-          path: build/windows/nsis/*.exe
+          path: bin/*-installer.exe
           retention-days: 5
 
   build-macos:
@@ -117,34 +105,27 @@ jobs:
         env:
           PRODUCTION: "true"
 
-      - name: Create DMG
+      - name: Remove quarantine attribute
         run: |
-          brew install create-dmg
-
           APP_PATH="bin/Ybub.app"
-          DMG_PATH="bin/Ybub-${{ matrix.arch }}.dmg"
+          # 移除隔离属性
+          sudo xattr -rd com.apple.quarantine "$APP_PATH"
 
-          # 移除隔离属性，防止 Gatekeeper 提示
-          xattr -cr "$APP_PATH"
-
-          # 创建 DMG
-          create-dmg \
-            --volname "Ybub" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --app-drop-link 450 185 \
-            "$DMG_PATH" \
-            "$APP_PATH"
-
-          # 再次移除 DMG 隔离属性
-          xattr -cr "$DMG_PATH"
+      - name: Create ZIP instead of DMG
+        run: |
+          APP_PATH="bin/Ybub.app"
+          ZIP_PATH="bin/Ybub-${{ matrix.arch }}.zip"
+          cd bin
+          zip -r "$ZIP_PATH" "Ybub.app"
+          cd ..
+          # 移除 ZIP 文件隔离属性
+          sudo xattr -rd com.apple.quarantine "$ZIP_PATH"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.arch }}-dmg
-          path: bin/*.dmg
+          name: macos-${{ matrix.arch }}-zip
+          path: bin/*.zip
           retention-days: 5
 
   release:
