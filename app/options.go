@@ -10,7 +10,7 @@ import (
 // createSingleInstanceOptions 创建单实例选项
 func createSingleInstanceOptions() *application.SingleInstanceOptions {
 	return &application.SingleInstanceOptions{
-		UniqueID: "com.kloom.yueli",
+		UniqueID: "com.ybub.yueli",
 		OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 			log.Printf("Second instance launched with args: %v", data.Args)
 			log.Printf("Working directory: %s", data.WorkingDir)

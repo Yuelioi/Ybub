@@ -9,4 +9,7 @@ frontend/bindings
 
 ybub.yaml
 backups
+
+
+.DS_Store
 logs

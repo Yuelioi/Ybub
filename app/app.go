@@ -83,9 +83,6 @@ func New(config Config) *App {
 	// 初始化各个组件
 	log.Info().Msg("开始初始化应用组件")
 
-	log.Debug().Msg("设置上下文菜单")
-	app.setupContextMenu()
-
 	log.Debug().Msg("设置主窗口")
 	app.setupMainWindow()
 
@@ -107,6 +104,9 @@ func (a *App) Run() error {
 		a.log.Error().Err(err).Msg("应用运行失败")
 		return err
 	}
+
+	log.Debug().Msg("设置上下文菜单")
+	a.setupContextMenu()
 
 	// 居中窗口
 	a.log.Debug().Msg("居中显示主窗口")

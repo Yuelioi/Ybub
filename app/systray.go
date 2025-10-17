@@ -18,7 +18,7 @@ func (a *App) setupSystemTray(iconFS embed.FS) {
 	}
 
 	systray := a.app.SystemTray.New()
-	systray.SetLabel("Kloom")
+	// systray.SetLabel("YBub")
 	systray.SetIcon(iconBytes)
 
 	// 设置点击事件
