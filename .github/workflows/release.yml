@@ -2,9 +2,12 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
+
 permissions:
   contents: write
 
@@ -87,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}-installer
-          path: build/windows/nsis/*.exe
+          path: build/windows/nsis/Ybub-amd64-Installer.exe
           retention-days: 5
 
   build-macos:
@@ -146,6 +149,10 @@ jobs:
             --app-drop-link 450 185 \
             "bin/Ybub-${{ matrix.arch }}.dmg" \
             "bin/Ybub.app" || true
+
+      - name: Ad-hoc sign DMG (for testing)
+        run: |
+          codesign --force --deep --sign - "bin/Ybub-${{ matrix.arch }}.dmg"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
