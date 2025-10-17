@@ -101,6 +101,13 @@
     :initial-data="dialog.initialData.value"
     @close="dialog.close()"
     @save="handleSave" />
+
+  <YamiDialog
+    :title="'确定要删除这个服务器吗？'"
+    v-model="showDeleteDialog"
+    @confirm="centerStore.removeServer(selectId)">
+    <p>其下的 Docker 项目也会被<span class="text-red-400">删除</span></p>
+  </YamiDialog>
 </template>
 
 <script setup lang="ts">
@@ -118,12 +125,16 @@ import { useDialog } from '@/composables/useDialog'
 import ServerCard from '@/components/server/ServerCard.vue'
 import ServerListItem from '@/components/server/ServerListItem.vue'
 import ServerDialog from '@/components/server/ServerDialog.vue'
+import { YamiDialog } from '@yuelioi/ui'
 
 const serverStore = useServerStore()
 const projectStore = useProjectStore()
 const centerStore = useCenterStore()
 
 const dialog = useDialog()
+
+const showDeleteDialog = ref(false)
+const selectId = ref('')
 
 // 视图模式和搜索
 const viewMode = useStorage<'grid' | 'list'>('server.view.mode', 'grid')
@@ -158,10 +169,7 @@ const handleSave = async (data: Server) => {
 }
 
 const handleDelete = async (id: string) => {
-  if (!confirm('确定要删除这个服务器吗？相关的 Docker 项目也会被删除。')) {
-    return
-  }
-
-  await centerStore.removeServer(id)
+  showDeleteDialog.value = true
+  selectId.value = id
 }
 </script>
