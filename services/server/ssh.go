@@ -36,8 +36,6 @@ func (s *SSHService) TestConnection(server models.Server) error {
 		Msg("SSH 连接成功")
 	return nil
 }
-
-// ExecCommand 执行命令（通用方法）
 func (s *SSHService) ExecCommand(server models.Server, commandID string, commands []string, cwd string) error {
 	log.Info().
 		Str("server", server.Name).
@@ -81,14 +79,21 @@ func (s *SSHService) ExecCommand(server models.Server, commandID string, command
 		return err
 	}
 
+	// === 创建中断通道并存入 map ===
+	cancelCh := make(chan struct{})
+	s.cancelMap.Store(commandID, cancelCh)
+	defer s.cancelMap.Delete(commandID)
+
 	// 实时读取 stdout/stderr 并通过事件发前端
 	done := make(chan struct{})
 	go func() {
 		s.streamOutput(stdout, func(line string) {
-			s.Emitter.EmitSshOutput(commandID,
-				"stdout",
-				line,
-			)
+			// !临时调试
+			log.Debug().
+				Str("server", server.Name).
+				Str("id", commandID).
+				Msgf("[STDOUT] %s", line)
+			s.Emitter.EmitSshOutput(commandID, "stdout", line)
 		})
 		close(done)
 	}()
@@ -97,20 +102,34 @@ func (s *SSHService) ExecCommand(server models.Server, commandID string, command
 			Str("server", server.Name).
 			Str("id", commandID).
 			Msgf("[STDERR] %s", line)
-		s.Emitter.EmitSshOutput(commandID,
-			"stderr",
-			line,
-		)
-
+		s.Emitter.EmitSshOutput(commandID, "stderr", line)
 	})
 
-	if err := session.Wait(); err != nil {
-		log.Error().
-			Err(err).
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- session.Wait()
+	}()
+
+	select {
+	case <-cancelCh:
+		log.Warn().
 			Str("server", server.Name).
-			Msg("SSH 命令执行出错")
-		s.Emitter.EmitSshOutput(commandID, "error", "")
-		return err
+			Str("id", commandID).
+			Msg("收到退出指令，终止远程命令执行")
+		_ = session.Signal(ssh.SIGKILL)
+		_ = session.Close()
+		s.Emitter.EmitSshOutput(commandID, "cancelled", "")
+		return fmt.Errorf("命令被中断")
+
+	case err := <-errCh:
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("server", server.Name).
+				Msg("SSH 命令执行出错")
+			s.Emitter.EmitSshOutput(commandID, "error", "")
+			return err
+		}
 	}
 
 	<-done
@@ -133,6 +152,20 @@ func (s *SSHService) ExecProjectCommand(project models.Project, commandID string
 		return err
 	}
 	return s.ExecCommand(*server, commandID, commands, project.Path)
+}
+
+func (s *SSHService) StopCommand(commandID string) {
+	if ch, ok := s.cancelMap.Load(commandID); ok {
+		close(ch.(chan struct{}))
+		s.cancelMap.Delete(commandID)
+		log.Info().
+			Str("id", commandID).
+			Msg("发送中断信号成功")
+	} else {
+		log.Warn().
+			Str("id", commandID).
+			Msg("未找到可中断的命令")
+	}
 }
 
 // 用服务器 ID 执行单条命令

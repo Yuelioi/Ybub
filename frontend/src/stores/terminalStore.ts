@@ -10,6 +10,7 @@ export const useTerminalStore = defineStore('terminal', () => {
   // 状态
   const terminalLogs = ref<TerminalLog[]>([])
   const currentCommand = ref('')
+  const commandId = ref('')
 
   // 计算属性
   const isExecuting = computed(() => terminalLogs.value.some((log) => log.isExecuting))
@@ -52,10 +53,12 @@ export const useTerminalStore = defineStore('terminal', () => {
     const commandToExecute = currentCommand.value
     const d = new Date()
     const timestamp = d.toLocaleTimeString()
-    const commandId = d.getTime().toString()
+    const id = d.getTime().toString()
+
+    commandId.value = id
 
     terminalLogs.value.push({
-      commandId,
+      commandId: id,
       timestamp,
       command: currentCommand.value,
       outputs: [],
@@ -66,11 +69,19 @@ export const useTerminalStore = defineStore('terminal', () => {
     currentCommand.value = ''
 
     try {
-      await SSHService.ExecCommandByServerID(
-        serverStore.currentServerId,
-        commandId,
-        commandToExecute,
-      )
+      await SSHService.ExecCommandByServerID(serverStore.currentServerId, id, commandToExecute)
+    } catch (error: any) {
+      toast.error(error)
+    }
+  }
+
+  const stopCommand = async () => {
+    try {
+      await SSHService.StopCommand(commandId.value)
+      const log = terminalLogs.value.find((log) => log.commandId === commandId.value)
+      if (log) {
+        log.isExecuting = false
+      }
     } catch (error: any) {
       toast.error(error)
     }
@@ -99,5 +110,6 @@ export const useTerminalStore = defineStore('terminal', () => {
     executeCommand,
     clearTerminal,
     setCurrentCommand,
+    stopCommand,
   }
 })

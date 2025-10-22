@@ -41,6 +41,17 @@
           <Trash2Icon class="size-4" />
           <span class="hidden sm:inline">清空</span>
         </button>
+        <label
+          for="autoScroll"
+          class="label select-none btn-sm btn btn-outline flex items-center cursor-pointer">
+          自动滚动
+          <input
+            type="checkbox"
+            id="autoScroll"
+            class="checkbox checkbox-primary checkbox-md"
+            v-model="autoScrollDown"
+            title="自动滚动" />
+        </label>
       </div>
 
       <!-- 常用命令面板 -->
@@ -429,6 +440,7 @@ const scrollToBottom = () => {
 // 本地存储
 const HISTORY_KEY = 'ssh_terminal_history'
 const QUICK_COMMANDS_KEY = 'ssh_quick_commands'
+const autoScrollDown = ref(true)
 
 const saveCommandHistory = () => {
   try {
@@ -472,7 +484,9 @@ const loadQuickCommands = () => {
 watch(
   () => terminalLogs.value,
   () => {
-    scrollToBottom()
+    if (autoScrollDown.value) {
+      scrollToBottom()
+    }
   },
   { deep: true },
 )
@@ -486,6 +500,15 @@ watch(
     })
   },
 )
+
+onMounted(() => {
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault()
+      terminalStore.stopCommand()
+    }
+  })
+})
 </script>
 
 <style scoped>
